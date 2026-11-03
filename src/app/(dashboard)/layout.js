@@ -12,7 +12,6 @@ import {
   ShieldAlert,
   Wallet,
   LogOut,
-  Hotel,
   ExternalLink,
   Percent,
   Sparkles,
@@ -23,6 +22,7 @@ import {
   KeyRound,
 } from "lucide-react";
 import { AuthProvider, useAuth } from "../../context/AuthContext";
+import Logo from "../../components/Logo";
 
 // Optional link to a hosted widget preview. Hidden when not configured.
 const WIDGET_PREVIEW_URL = process.env.NEXT_PUBLIC_WIDGET_PREVIEW_URL || "";
@@ -70,13 +70,13 @@ function DashboardShell({ children }) {
     <div className="min-h-screen flex bg-slate-50 text-slate-900">
       {/* Sidebar */}
       <aside className="w-64 bg-white border-r border-slate-200/80 flex flex-col fixed inset-y-0 z-30">
-        <div className="p-5 border-b border-slate-100 flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-slate-900 flex items-center justify-center text-white shadow-sm shrink-0">
-            <Hotel size={20} className="text-blue-400" />
-          </div>
-          <div className="overflow-hidden">
+        <div className="px-5 pt-5 pb-4 border-b border-slate-100">
+          <Link href="/" aria-label="PureBook dashboard" className="inline-flex">
+            <Logo className="h-8" />
+          </Link>
+          <div className="mt-4 rounded-xl bg-slate-50 ring-1 ring-slate-200/70 px-3 py-2.5 overflow-hidden">
             <h1 className="text-sm font-bold text-slate-900 truncate">
-              {hotel?.name || "Direct Hotel Engine"}
+              {hotel?.name || "Your property"}
             </h1>
             <p className="text-[11px] font-mono text-slate-400 truncate">
               {hotel?.slug ? `@${hotel.slug}` : "Hotelier Console"}

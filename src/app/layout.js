@@ -1,7 +1,7 @@
 import './globals.css';
 
 export const metadata = {
-  title: 'Hotelier Portal | Direct Booking Engine',
+  title: 'PureBook | Hotelier Console',
   description: 'Manage hotel direct reservations, rates, and inventory',
 };
 

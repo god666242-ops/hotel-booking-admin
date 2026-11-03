@@ -4,8 +4,8 @@ import { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { ADMIN_API_URL } from '../../../lib/api';
+import Logo from '../../../components/Logo';
 import {
-  Building2,
   ArrowRight,
   Eye,
   EyeOff,
@@ -399,11 +399,8 @@ export default function RegisterPage() {
     <div className="min-h-screen grid lg:grid-cols-[1fr_1.1fr] bg-white">
       {/* ───────────── Brand panel (large screens) ───────────── */}
       <aside className="hidden lg:flex flex-col justify-between bg-slate-950 text-white p-12 xl:p-16 lg:sticky lg:top-0 lg:h-screen">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-white/10 ring-1 ring-white/15 flex items-center justify-center">
-            <Building2 size={21} className="text-emerald-400" />
-          </div>
-          <span className="text-base font-semibold tracking-tight">Direct Booking Engine</span>
+        <div>
+          <Logo light className="h-10" />
         </div>
 
         <div className="max-w-md">
@@ -442,11 +439,8 @@ export default function RegisterPage() {
       {/* ───────────── Main Content Area ───────────── */}
       <main className="flex items-start lg:items-center justify-center p-6 sm:p-10 bg-slate-50 lg:bg-white">
         <div className="w-full max-w-md py-4">
-          <div className="flex items-center gap-3 mb-8 lg:hidden">
-            <div className="w-10 h-10 rounded-xl bg-slate-900 flex items-center justify-center">
-              <Building2 size={21} className="text-emerald-400" />
-            </div>
-            <span className="text-base font-semibold tracking-tight text-slate-900">Direct Booking Engine</span>
+          <div className="mb-8 lg:hidden">
+            <Logo className="h-9" />
           </div>
 
           {/* Stepper Progress Badges */}
