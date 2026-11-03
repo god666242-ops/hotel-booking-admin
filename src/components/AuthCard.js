@@ -1,17 +1,17 @@
 'use client';
 
-import { Hotel } from 'lucide-react';
+import Logo from './Logo';
 
 /** Shared shell for the small account pages (forgot / reset / accept invite). */
 export default function AuthCard({ title, subtitle, children }) {
   return (
     <div className="min-h-screen flex items-center justify-center bg-slate-50 px-4 py-10">
       <div className="w-full max-w-md">
-        <div className="flex items-center gap-3 mb-6 justify-center">
-          <div className="w-10 h-10 rounded-xl bg-slate-900 flex items-center justify-center text-white">
-            <Hotel size={20} className="text-blue-400" />
-          </div>
-          <span className="text-sm font-bold text-slate-900">Hotel Console</span>
+        <div className="flex flex-col items-center gap-2 mb-6">
+          <Logo className="h-10" />
+          <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-400">
+            Hotelier Console
+          </span>
         </div>
         <div className="bg-white border border-slate-200/80 rounded-2xl shadow-sm p-7">
           <h1 className="text-xl font-bold tracking-tight text-slate-900">{title}</h1>
