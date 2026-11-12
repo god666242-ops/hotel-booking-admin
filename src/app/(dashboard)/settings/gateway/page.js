@@ -154,7 +154,13 @@ export default function GatewaySettingsPage() {
 
               <ol className="space-y-3 text-xs text-slate-700 leading-relaxed list-decimal list-inside">
                 <li>
-                  In your Razorpay Dashboard, switch to <b>Live Mode</b>, then open{' '}
+                  In your Razorpay Dashboard, open{' '}
+                  <b>Account &amp; Settings → Business website details</b> and make sure the{' '}
+                  <b>website domain where you embed the booking widget</b> is added and{' '}
+                  <b>Approved</b> (Razorpay blocks live checkout on unverified domains).
+                </li>
+                <li>
+                  Switch to <b>Live Mode</b>, then open{' '}
                   <b>Account &amp; Settings → API Keys → Generate Key</b>. Copy the <b>Key ID</b> and{' '}
                   <b>Key Secret</b> (the secret is shown only once).
                 </li>
@@ -252,7 +258,7 @@ export default function GatewaySettingsPage() {
             </div>
           </div>
         ) : (
-          <div className="space-y-3 pt-4 border-t border-slate-100 text-xs text-slate-600 leading-relaxed">
+          <div className="space-y-4 pt-4 border-t border-slate-100 text-xs text-slate-600 leading-relaxed">
             <p>
               <b className="text-slate-800">How it works:</b> when a guest books, they pay a {percents.payAtHotel}%
               booking fee online (calculated on room charges and add-ons, excluding GST). The remaining
@@ -264,6 +270,14 @@ export default function GatewaySettingsPage() {
               <li>If you cancel a booking, the guest gets the booking fee back in full.</li>
               <li>Nothing is billed to you later. Our commission is the booking fee paid online.</li>
             </ul>
+            <div className="bg-amber-50/80 border border-amber-200/80 text-amber-900 rounded-xl p-3.5 flex items-start gap-2.5">
+              <Info size={15} className="text-amber-600 shrink-0 mt-0.5" />
+              <span>
+                <b>Website domain verification:</b> Before embedding the booking widget on your live website,
+                make sure your website domain is registered in your property settings and verified with our
+                support team so online checkout works without interruption.
+              </span>
+            </div>
           </div>
         )}
 
