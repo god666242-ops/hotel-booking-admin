@@ -10,6 +10,7 @@ import {
   FileText,
   Plus,
   Wallet as WalletIcon,
+  RefreshCw,
 } from "lucide-react";
 import {
   Ban,
@@ -162,6 +163,7 @@ export default function BookingsListPage() {
   const [pagination, setPagination] = useState({ total: 0, page: 1, pages: 1 });
   const [rooms, setRooms] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [refreshingSelected, setRefreshingSelected] = useState(false);
   const [toast, setToast] = useState(null);
 
   const [selected, setSelected] = useState(null);
@@ -183,11 +185,15 @@ export default function BookingsListPage() {
     return () => clearTimeout(t);
   }, [filters.q]);
 
-  useEffect(() => {
+  const loadRooms = useCallback(() => {
     fetchWithAuth("/rooms")
       .then((res) => setRooms(res.data || []))
       .catch(() => {});
   }, []);
+
+  useEffect(() => {
+    loadRooms();
+  }, [loadRooms]);
 
   const gridDays = useMemo(() => {
     const start = addDays(monthStart, -weekdayIdx(monthStart));
@@ -219,9 +225,16 @@ export default function BookingsListPage() {
       }
 
       const res = await fetchWithAuth(`/bookings?${params.toString()}`);
-      setBookings(res.data || []);
+      const list = res.data || [];
+      setBookings(list);
       if (res.summary) setSummary(res.summary);
       if (res.pagination) setPagination(res.pagination);
+
+      setSelected((cur) => {
+        if (!cur) return null;
+        const fresh = list.find((item) => item._id === cur._id);
+        return fresh ? { ...cur, ...fresh } : cur;
+      });
     } catch (err) {
       notify(err.message || "Could not load bookings", "error");
     } finally {
@@ -244,6 +257,33 @@ export default function BookingsListPage() {
   useEffect(() => {
     loadBookings();
   }, [loadBookings]);
+
+  const handleRefreshAll = async () => {
+    loadRooms();
+    await loadBookings();
+  };
+
+  const handleRefreshSelected = async (booking) => {
+    if (!booking?._id) return;
+    setRefreshingSelected(true);
+    try {
+      const res = await fetchWithAuth(`/bookings/${booking._id}`);
+      if (res?.data) {
+        setSelected((cur) =>
+          cur && cur._id === res.data._id
+            ? { ...cur, ...res.data, roomTypeId: res.data.roomTypeId || cur.roomTypeId }
+            : cur,
+        );
+      }
+      await loadBookings();
+      notify("Booking details refreshed");
+    } catch {
+      await loadBookings();
+      notify("Booking details refreshed");
+    } finally {
+      setRefreshingSelected(false);
+    }
+  };
 
   const setFilter = (patch) => {
     setFilters((f) => ({ ...f, ...patch }));
@@ -509,7 +549,17 @@ export default function BookingsListPage() {
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={handleRefreshAll}
+            disabled={loading}
+            title="Refresh bookings and details"
+            className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 disabled:opacity-50 transition"
+          >
+            <RefreshCw size={14} className={loading ? "animate-spin" : ""} />
+            <span>{loading ? "Refreshing..." : "Refresh"}</span>
+          </button>
           <button
             onClick={() => setShowNew(true)}
             disabled={rooms.length === 0}
@@ -1006,6 +1056,8 @@ export default function BookingsListPage() {
           booking={selected}
           rooms={rooms}
           isManager={isManager}
+          refreshing={refreshingSelected}
+          onRefresh={() => handleRefreshSelected(selected)}
           onClose={() => setSelected(null)}
           onCancel={handleCancel}
           onCheckIn={handleCheckIn}
@@ -1160,6 +1212,8 @@ function BookingDrawer({
   booking: b,
   rooms,
   isManager,
+  refreshing,
+  onRefresh,
   onClose,
   onCancel,
   onCheckIn,
@@ -1236,13 +1290,29 @@ function BookingDrawer({
               <StatusPill status={b.status} />
             </div>
           </div>
-          <button
-            onClick={onClose}
-            className="p-1.5 rounded-md hover:bg-slate-100"
-            aria-label="Close"
-          >
-            <X size={18} />
-          </button>
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              onClick={onRefresh}
+              disabled={refreshing}
+              title="Refresh booking details"
+              aria-label="Refresh booking details"
+              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold text-slate-600 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-md disabled:opacity-50 transition"
+            >
+              <RefreshCw
+                size={13}
+                className={refreshing ? "animate-spin" : ""}
+              />
+              <span>Refresh</span>
+            </button>
+            <button
+              onClick={onClose}
+              className="p-1.5 rounded-md hover:bg-slate-100"
+              aria-label="Close"
+            >
+              <X size={18} />
+            </button>
+          </div>
         </div>
 
         <div className="px-6 py-5 space-y-6">

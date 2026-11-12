@@ -1,9 +1,18 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { fetchWithAuth } from '../../lib/api';
 import StatCard from '../../components/StatCard';
-import { BookOpenCheck, IndianRupee, BedDouble, ArrowUpRight, TrendingUp, Percent, Activity } from 'lucide-react';
+import {
+  BookOpenCheck,
+  IndianRupee,
+  BedDouble,
+  ArrowUpRight,
+  TrendingUp,
+  Percent,
+  Activity,
+  RefreshCw,
+} from 'lucide-react';
 import Link from 'next/link';
 import { useAuth } from '../../context/AuthContext';
 
@@ -21,34 +30,41 @@ export default function DashboardOverviewPage() {
   const { user } = useAuth();
   const isManager = user?.role !== 'STAFF';
 
-  useEffect(() => {
+  const loadDashboard = useCallback(async () => {
     if (!user) return;
-    // /payouts is manager-only: STAFF must not call it, and one failed request
-    // must never blank the whole page, so each call is settled independently.
-    Promise.allSettled([
-      fetchWithAuth('/bookings?limit=5'),
-      isManager ? fetchWithAuth('/commission/summary') : Promise.resolve(null),
-      fetchWithAuth('/rooms'),
-      fetchWithAuth('/bookings/analytics/adr-revpar')
-    ])
-      .then(([bookings, payouts, rooms, analytics]) => {
-        const bookingsRes = bookings.status === 'fulfilled' ? bookings.value : {};
-        const payoutsRes = payouts.status === 'fulfilled' ? payouts.value : null;
-        const roomsRes = rooms.status === 'fulfilled' ? rooms.value : {};
-        const analyticsRes = analytics.status === 'fulfilled' ? analytics.value : null;
-        
-        setStats({
-          totalBookings: bookingsRes.pagination?.total || 0,
-          grossRevenue: payoutsRes?.data?.grossBookingValue || 0,
-          activeRooms: roomsRes.data?.length || 0,
-          recentBookings: bookingsRes.data || [],
-          adr: analyticsRes?.data?.metrics?.adr || 0,
-          revpar: analyticsRes?.data?.metrics?.revpar || 0,
-          occupancyRate: analyticsRes?.data?.metrics?.occupancyRate || 0,
-        });
-      })
-      .finally(() => setLoading(false));
+    setLoading(true);
+    try {
+      // /payouts is manager-only: STAFF must not call it, and one failed request
+      // must never blank the whole page, so each call is settled independently.
+      const [bookings, payouts, rooms, analytics] = await Promise.allSettled([
+        fetchWithAuth('/bookings?limit=5'),
+        isManager ? fetchWithAuth('/commission/summary') : Promise.resolve(null),
+        fetchWithAuth('/rooms'),
+        fetchWithAuth('/bookings/analytics/adr-revpar'),
+      ]);
+
+      const bookingsRes = bookings.status === 'fulfilled' ? bookings.value : {};
+      const payoutsRes = payouts.status === 'fulfilled' ? payouts.value : null;
+      const roomsRes = rooms.status === 'fulfilled' ? rooms.value : {};
+      const analyticsRes = analytics.status === 'fulfilled' ? analytics.value : null;
+
+      setStats({
+        totalBookings: bookingsRes.pagination?.total || 0,
+        grossRevenue: payoutsRes?.data?.grossBookingValue || 0,
+        activeRooms: (roomsRes.data || []).filter((r) => r.isActive !== false).length,
+        recentBookings: bookingsRes.data || [],
+        adr: analyticsRes?.data?.metrics?.adr || 0,
+        revpar: analyticsRes?.data?.metrics?.revpar || 0,
+        occupancyRate: analyticsRes?.data?.metrics?.occupancyRate || 0,
+      });
+    } finally {
+      setLoading(false);
+    }
   }, [user, isManager]);
+
+  useEffect(() => {
+    loadDashboard();
+  }, [loadDashboard]);
 
   return (
     <div className="space-y-8 max-w-7xl">
@@ -57,7 +73,17 @@ export default function DashboardOverviewPage() {
           <h1 className="text-2xl font-bold tracking-tight text-slate-900">Dashboard Overview</h1>
           <p className="text-sm text-slate-500 mt-1">Real-time booking revenue, confirmed stays & property health</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={loadDashboard}
+            disabled={loading}
+            title="Refresh dashboard stats and bookings"
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-white border border-slate-200 text-slate-700 text-xs font-semibold rounded-xl hover:bg-slate-50 disabled:opacity-50 transition shadow-sm"
+          >
+            <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
+            <span>{loading ? 'Refreshing...' : 'Refresh'}</span>
+          </button>
           <Link
             href="/inventory"
             className="px-4 py-2 bg-white border border-slate-200 text-slate-700 text-xs font-semibold rounded-xl hover:bg-slate-50 transition shadow-sm"
