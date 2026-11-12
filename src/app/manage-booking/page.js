@@ -1031,6 +1031,49 @@ function ManageBookingContent() {
                   </div>
                 )}
 
+                {data.booking.status === "CONFIRMED" &&
+                  ["PAY_AT_HOTEL", "OFFLINE"].includes(
+                    data.booking.payment?.mode,
+                  ) &&
+                  !data.cancellation?.canModify && (
+                    <div className="no-print rounded-xl border border-indigo-100 bg-indigo-50/60 p-4 text-sm text-slate-700">
+                      <p className="flex items-start gap-2 font-semibold text-slate-900">
+                        <CalendarDays
+                          size={16}
+                          className="mt-0.5 shrink-0 text-indigo-600"
+                        />
+                        Need to change your dates or guests?
+                      </p>
+                      <p className="mt-1.5 text-slate-600">
+                        Changes to pay-at-hotel bookings are made by the hotel.
+                        Please contact {data.hotel.name} and quote your booking
+                        code{" "}
+                        <span className="font-mono font-semibold">
+                          {data.booking.bookingCode}
+                        </span>
+                        .
+                      </p>
+                      <div className="mt-2.5 flex flex-wrap gap-x-5 gap-y-1 font-medium">
+                        {data.hotel.contact?.phone && (
+                          <a
+                            href={`tel:${data.hotel.contact.phone}`}
+                            className="text-indigo-700 underline underline-offset-2"
+                          >
+                            Call {data.hotel.contact.phone}
+                          </a>
+                        )}
+                        {data.hotel.contact?.email && (
+                          <a
+                            href={`mailto:${data.hotel.contact.email}`}
+                            className="text-indigo-700 underline underline-offset-2"
+                          >
+                            {data.hotel.contact.email}
+                          </a>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
                 {data.booking.status === "CONFIRMED" && (
                   <div className="no-print pt-2 border-t border-slate-100 flex flex-col sm:flex-row gap-3">
                     {data.cancellation?.canModify && (

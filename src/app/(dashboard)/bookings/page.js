@@ -340,6 +340,37 @@ export default function BookingsListPage() {
     }
   };
 
+  const handleModify = async (booking, form) => {
+    try {
+      const res = await fetchWithAuth(`/bookings/${booking._id}/modify`, {
+        method: "POST",
+        body: JSON.stringify(form),
+      });
+      const d = res?.data?.delta;
+      const note =
+        d?.delta > 0 && d.action === "PAYMENT_DUE"
+          ? ` Total increased by ${money(d.delta)}.`
+          : d?.delta > 0 && d.action === "REFUND_DUE"
+            ? ` Total decreased by ${money(d.delta)}.`
+            : "";
+      notify((res.message || "Booking modified successfully.") + note);
+      const updated = res?.data?.booking;
+      if (updated?._id)
+        setSelected((cur) =>
+          cur && cur._id === updated._id
+            ? { ...cur, ...updated, roomTypeId: cur.roomTypeId }
+            : cur,
+        );
+      loadBookings();
+      return { ok: true };
+    } catch (err) {
+      return {
+        ok: false,
+        message: err.message || "Could not modify the booking.",
+      };
+    }
+  };
+
   const runAction = async (fn, okMessage) => {
     try {
       const res = await fn();
@@ -980,6 +1011,7 @@ export default function BookingsListPage() {
           onCheckOut={handleCheckOut}
           onPayment={handlePayment}
           onInvoice={handleInvoice}
+          onModify={handleModify}
         />
       )}
 
@@ -1120,6 +1152,7 @@ function BookingDrawer({
   onCheckOut,
   onPayment,
   onInvoice,
+  onModify,
 }) {
   const [payForm, setPayForm] = useState({
     amount: "",
@@ -1130,12 +1163,14 @@ function BookingDrawer({
   const [confirming, setConfirming] = useState(false);
   const [reason, setReason] = useState("");
   const [busy, setBusy] = useState(false);
+  const [showModify, setShowModify] = useState(false);
 
   useEffect(() => {
-    const onKey = (e) => e.key === "Escape" && onClose();
+    // While the modify dialog is open, Esc closes only that dialog.
+    const onKey = (e) => e.key === "Escape" && !showModify && onClose();
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [onClose]);
+  }, [onClose, showModify]);
 
   const submit = async () => {
     setBusy(true);
@@ -1389,6 +1424,15 @@ function BookingDrawer({
                     <FileText size={15} /> Invoice (PDF)
                   </button>
                 )}
+                {b.status === "CONFIRMED" &&
+                  ["PAY_AT_HOTEL", "OFFLINE"].includes(b.payment?.mode) && (
+                    <button
+                      onClick={() => setShowModify(true)}
+                      className="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold text-slate-700 bg-white border border-slate-200 rounded-lg hover:bg-slate-50"
+                    >
+                      <CalendarDays size={15} /> Modify booking
+                    </button>
+                  )}
               </div>
               {b.status === "CONFIRMED" &&
                 !canCheckIn &&
@@ -1560,6 +1604,197 @@ function BookingDrawer({
           )}
         </div>
       </div>
+
+      {showModify && (
+        <ModifyBookingModal
+          booking={b}
+          onClose={() => setShowModify(false)}
+          onSave={async (form) => {
+            const r = await onModify(b, form);
+            if (r.ok) setShowModify(false);
+            return r;
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Modify booking dialog (pay-at-hotel and walk-in bookings)           */
+/* ------------------------------------------------------------------ */
+function ModifyBookingModal({ booking: b, onClose, onSave }) {
+  const [form, setForm] = useState({
+    checkIn: ymd(b.dates.checkIn),
+    checkOut: ymd(b.dates.checkOut),
+    roomCount: b.roomCount || 1,
+    adults: b.occupancy?.adults || 1,
+    children: b.occupancy?.children || 0,
+  });
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+  const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
+  const nights = Math.round(
+    (new Date(form.checkOut) - new Date(form.checkIn)) / 86400000,
+  );
+
+  useEffect(() => {
+    const onKey = (e) => e.key === "Escape" && !saving && onClose();
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose, saving]);
+
+  const submit = async (e) => {
+    e.preventDefault();
+    if (!form.checkIn || !form.checkOut || !(nights > 0)) {
+      setError("Check-out must be after check-in.");
+      return;
+    }
+    setSaving(true);
+    setError("");
+    const r = await onSave({
+      checkIn: form.checkIn,
+      checkOut: form.checkOut,
+      roomCount: Number(form.roomCount) || 1,
+      adults: Number(form.adults) || 1,
+      children: Number(form.children) || 0,
+    });
+    if (!r.ok) {
+      setError(r.message);
+      setSaving(false);
+    }
+  };
+
+  const input =
+    "w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20";
+
+  return (
+    <div className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-900/50 p-4">
+      <form
+        onSubmit={submit}
+        className="w-full max-w-md space-y-4 rounded-2xl bg-white p-6 shadow-2xl"
+      >
+        <div className="flex items-start justify-between">
+          <div>
+            <h3 className="text-lg font-bold text-slate-900">Modify booking</h3>
+            <p className="text-xs text-slate-500">
+              {b.bookingCode} · {b.guest?.name}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={saving}
+            className="text-slate-400 hover:text-slate-700"
+            aria-label="Close"
+          >
+            <X size={18} />
+          </button>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3">
+          <label className="text-xs font-semibold text-slate-600">
+            Check-in
+            <input
+              type="date"
+              className={`${input} mt-1`}
+              value={form.checkIn}
+              min={todayStr()}
+              onChange={(e) => {
+                const v = e.target.value;
+                setForm((f) => ({
+                  ...f,
+                  checkIn: v,
+                  checkOut: v && f.checkOut <= v ? addDays(v, 1) : f.checkOut,
+                }));
+              }}
+              required
+            />
+          </label>
+          <label className="text-xs font-semibold text-slate-600">
+            Check-out{" "}
+            {nights > 0
+              ? `(${nights} night${nights > 1 ? "s" : ""})`
+              : "(invalid)"}
+            <input
+              type="date"
+              className={`${input} mt-1`}
+              value={form.checkOut}
+              min={form.checkIn ? addDays(form.checkIn, 1) : undefined}
+              onChange={(e) => set("checkOut", e.target.value)}
+              required
+            />
+          </label>
+        </div>
+
+        <div className="grid grid-cols-3 gap-3">
+          <label className="text-xs font-semibold text-slate-600">
+            Rooms
+            <input
+              type="number"
+              min="1"
+              max="50"
+              className={`${input} mt-1`}
+              value={form.roomCount}
+              onChange={(e) => set("roomCount", e.target.value)}
+            />
+          </label>
+          <label className="text-xs font-semibold text-slate-600">
+            Adults
+            <input
+              type="number"
+              min="1"
+              className={`${input} mt-1`}
+              value={form.adults}
+              onChange={(e) => set("adults", e.target.value)}
+            />
+          </label>
+          <label className="text-xs font-semibold text-slate-600">
+            Children
+            <input
+              type="number"
+              min="0"
+              className={`${input} mt-1`}
+              value={form.children}
+              onChange={(e) => set("children", e.target.value)}
+            />
+          </label>
+        </div>
+
+        <p className="rounded-lg bg-slate-50 p-3 text-xs text-slate-600">
+          The price is recalculated from your current rates, taxes and the
+          guest’s plan or promo.
+          {b.payment?.mode === "PAY_AT_HOTEL" &&
+            " The online booking fee already paid stays unchanged; only the amount payable at the hotel changes."}
+        </p>
+
+        {error && (
+          <div
+            className="rounded-lg border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700"
+            role="alert"
+          >
+            {error}
+          </div>
+        )}
+
+        <div className="flex justify-end gap-2">
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={saving}
+            className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            disabled={saving}
+            className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-60"
+          >
+            {saving ? "Saving…" : "Save changes"}
+          </button>
+        </div>
+      </form>
     </div>
   );
 }
