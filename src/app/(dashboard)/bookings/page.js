@@ -1624,9 +1624,17 @@ function BookingDrawer({
 /* Modify booking dialog (pay-at-hotel and walk-in bookings)           */
 /* ------------------------------------------------------------------ */
 function ModifyBookingModal({ booking: b, onClose, onSave }) {
+  const originalCheckIn = ymd(b.dates.checkIn);
+  const originalCheckOut = ymd(b.dates.checkOut);
+  // Stay length is fixed: dates can only shift, never shrink or grow
+  const originalNights = Math.round(
+    (new Date(originalCheckOut) - new Date(originalCheckIn)) / 86400000,
+  );
+  const nightsLabel = `${originalNights} night${originalNights > 1 ? "s" : ""}`;
+
   const [form, setForm] = useState({
-    checkIn: ymd(b.dates.checkIn),
-    checkOut: ymd(b.dates.checkOut),
+    checkIn: originalCheckIn,
+    checkOut: originalCheckOut,
     roomCount: b.roomCount || 1,
     adults: b.occupancy?.adults || 1,
     children: b.occupancy?.children || 0,
@@ -1646,8 +1654,10 @@ function ModifyBookingModal({ booking: b, onClose, onSave }) {
 
   const submit = async (e) => {
     e.preventDefault();
-    if (!form.checkIn || !form.checkOut || !(nights > 0)) {
-      setError("Check-out must be after check-in.");
+    if (!form.checkIn || !form.checkOut || nights !== originalNights) {
+      setError(
+        `Stay length must stay ${nightsLabel}. You can only shift the dates.`,
+      );
       return;
     }
     setSaving(true);
@@ -1702,30 +1712,32 @@ function ModifyBookingModal({ booking: b, onClose, onSave }) {
               min={todayStr()}
               onChange={(e) => {
                 const v = e.target.value;
+                if (!v) return;
                 setForm((f) => ({
                   ...f,
                   checkIn: v,
-                  checkOut: v && f.checkOut <= v ? addDays(v, 1) : f.checkOut,
+                  checkOut: addDays(v, originalNights), // same number of nights
                 }));
               }}
               required
             />
           </label>
           <label className="text-xs font-semibold text-slate-600">
-            Check-out{" "}
-            {nights > 0
-              ? `(${nights} night${nights > 1 ? "s" : ""})`
-              : "(invalid)"}
+            Check-out ({nightsLabel})
             <input
               type="date"
-              className={`${input} mt-1`}
+              className={`${input} mt-1 cursor-not-allowed bg-slate-50 text-slate-500`}
               value={form.checkOut}
-              min={form.checkIn ? addDays(form.checkIn, 1) : undefined}
-              onChange={(e) => set("checkOut", e.target.value)}
-              required
+              readOnly
+              disabled
             />
           </label>
         </div>
+
+        <p className="text-xs text-slate-500">
+          The stay length is fixed at {nightsLabel}. Choose a new check-in date
+          and check-out moves with it.
+        </p>
 
         <div className="grid grid-cols-3 gap-3">
           <label className="text-xs font-semibold text-slate-600">

@@ -1053,6 +1053,45 @@ function ManageBookingContent() {
                         </span>
                         .
                       </p>
+
+                      <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                        <div>
+                          <p className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                            What can be changed
+                          </p>
+                          <ul className="mt-1 list-disc space-y-0.5 pl-5 text-slate-600">
+                            <li>
+                              Move your stay to earlier or later dates, keeping
+                              the same {data.booking.dates?.nights}{" "}
+                              {data.booking.dates?.nights === 1
+                                ? "night"
+                                : "nights"}
+                            </li>
+                            <li>Number of rooms</li>
+                            <li>Number of adults and children</li>
+                          </ul>
+                        </div>
+                        <div>
+                          <p className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                            What cannot be changed
+                          </p>
+                          <ul className="mt-1 list-disc space-y-0.5 pl-5 text-slate-600">
+                            <li>
+                              The number of nights cannot be reduced or
+                              increased
+                            </li>
+                          </ul>
+                        </div>
+                      </div>
+
+                      <p className="mt-3 rounded-lg bg-white/70 p-2.5 text-slate-600">
+                        <span className="font-semibold text-slate-900">
+                          Want to stay longer?
+                        </span>{" "}
+                        To add more days, please make a fresh booking for the
+                        extra nights.
+                      </p>
+
                       <div className="mt-2.5 flex flex-wrap gap-x-5 gap-y-1 font-medium">
                         {data.hotel.contact?.phone && (
                           <a
