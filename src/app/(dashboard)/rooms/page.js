@@ -7,6 +7,7 @@ import {
   Plus,
   Users,
   Trash2,
+  RotateCcw,
   Edit2,
   X,
   Image as ImageIcon,
@@ -38,6 +39,7 @@ export default function RoomsPage() {
   const [showModal, setShowModal] = useState(false);
   const [editingRoomId, setEditingRoomId] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [togglingId, setTogglingId] = useState(null);
   const [uploading, setUploading] = useState(false);
   const [form, setForm] = useState(INITIAL_FORM);
   const [formError, setFormError] = useState("");
@@ -86,7 +88,6 @@ export default function RoomsPage() {
     setShowModal(true);
   };
 
-  // Accepts only empty or non-negative values (whole numbers when integer = true)
   const handleNumberChange =
     (key, integer = false) =>
     (e) => {
@@ -101,12 +102,10 @@ export default function RoomsPage() {
       setForm((prev) => ({ ...prev, [key]: val }));
     };
 
-  // ── Multi-file upload handler ──
   const handleFilesSelected = async (e) => {
     const files = Array.from(e.target.files || []);
     if (!files.length) return;
 
-    // Check remaining allowed photos (max 8)
     const availableSlots = 8 - form.photos.length;
     if (availableSlots <= 0) {
       alert("You can upload a maximum of 8 photos per room category.");
@@ -120,7 +119,6 @@ export default function RoomsPage() {
 
     setUploading(true);
     try {
-      // Uses the centralized fetchWithAuth which properly injects `hbe_token`
       const data = await fetchWithAuth("/upload/images", {
         method: "POST",
         body: formData,
@@ -224,14 +222,28 @@ export default function RoomsPage() {
     }
   };
 
-  const handleDelete = async (id) => {
-    if (!confirm("Are you sure you want to deactivate this room category?"))
+  const handleToggleActive = async (room) => {
+    const currentlyActive = room.isActive !== false;
+    const actionLabel = currentlyActive ? "deactivate" : "activate";
+    if (!confirm(`Are you sure you want to ${actionLabel} "${room.name}"?`)) {
       return;
+    }
+
+    setTogglingId(room._id);
     try {
-      await fetchWithAuth(`/rooms/${id}`, { method: "DELETE" });
+      if (currentlyActive) {
+        await fetchWithAuth(`/rooms/${room._id}`, { method: "DELETE" });
+      } else {
+        await fetchWithAuth(`/rooms/${room._id}`, {
+          method: "PUT",
+          body: JSON.stringify({ isActive: true }),
+        });
+      }
       await loadRooms();
     } catch (err) {
       alert(err.message);
+    } finally {
+      setTogglingId(null);
     }
   };
 
@@ -259,6 +271,8 @@ export default function RoomsPage() {
       {/* Room Cards Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {rooms.map((room) => {
+          const isActive = room.isActive !== false;
+          const isToggling = togglingId === room._id;
           const primaryPhoto =
             room.photos?.[0] ||
             "https://images.unsplash.com/photo-1590490360182-c33d57733427?auto=format&fit=crop&w=600&q=80";
@@ -266,19 +280,36 @@ export default function RoomsPage() {
           return (
             <div
               key={room._id}
-              className="bg-white border border-slate-200/80 rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-all flex flex-col justify-between"
+              className={`bg-white border rounded-2xl overflow-hidden shadow-sm transition-all flex flex-col justify-between ${
+                isActive
+                  ? "border-slate-200/80 hover:shadow-md"
+                  : "border-rose-200/80 opacity-80"
+              }`}
             >
               <div>
                 <div className="relative h-44 w-full bg-slate-100 overflow-hidden">
                   <img
                     src={primaryPhoto}
                     alt={room.name}
-                    className="w-full h-full object-cover"
+                    className={`w-full h-full object-cover ${
+                      !isActive ? "grayscale" : ""
+                    }`}
                     onError={(e) => {
                       e.target.src =
                         "https://images.unsplash.com/photo-1590490360182-c33d57733427?auto=format&fit=crop&w=600&q=80";
                     }}
                   />
+                  <div className="absolute top-3 left-3">
+                    <span
+                      className={`text-[11px] font-bold px-2.5 py-1 rounded-full shadow-xs ${
+                        isActive
+                          ? "bg-emerald-600/90 text-white"
+                          : "bg-rose-600/95 text-white"
+                      }`}
+                    >
+                      {isActive ? "Active" : "Inactive"}
+                    </span>
+                  </div>
                   <div className="absolute top-3 right-3 bg-slate-900/80 backdrop-blur-xs text-white text-[11px] font-semibold px-2.5 py-1 rounded-full flex items-center gap-1.5 shadow-xs">
                     <ImageIcon size={12} />
                     <span>{room.photos?.length || 0} photos</span>
@@ -339,13 +370,25 @@ export default function RoomsPage() {
                   <Edit2 size={13} className="text-slate-500" />
                   <span>Edit Room</span>
                 </button>
-                <button
-                  onClick={() => handleDelete(room._id)}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs text-rose-600 hover:bg-rose-50 rounded-lg font-semibold transition"
-                >
-                  <Trash2 size={13} />
-                  <span>Deactivate</span>
-                </button>
+                {isActive ? (
+                  <button
+                    disabled={isToggling}
+                    onClick={() => handleToggleActive(room)}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs text-rose-600 hover:bg-rose-50 rounded-lg font-semibold transition disabled:opacity-50"
+                  >
+                    <Trash2 size={13} />
+                    <span>{isToggling ? "Deactivating..." : "Deactivate"}</span>
+                  </button>
+                ) : (
+                  <button
+                    disabled={isToggling}
+                    onClick={() => handleToggleActive(room)}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-lg font-semibold transition disabled:opacity-50"
+                  >
+                    <RotateCcw size={13} />
+                    <span>{isToggling ? "Activating..." : "Activate"}</span>
+                  </button>
+                )}
               </div>
             </div>
           );
@@ -557,7 +600,6 @@ export default function RoomsPage() {
                   )}
                 </div>
 
-                {/* Uploaded Thumbnails Tray */}
                 {form.photos.length > 0 && (
                   <div className="grid grid-cols-4 sm:grid-cols-6 gap-2.5 p-3 bg-slate-50 rounded-xl border border-slate-200/80 mt-3">
                     {form.photos.map((url, idx) => (
