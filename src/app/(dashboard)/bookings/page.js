@@ -1004,6 +1004,7 @@ export default function BookingsListPage() {
       {selected && (
         <BookingDrawer
           booking={selected}
+          rooms={rooms}
           isManager={isManager}
           onClose={() => setSelected(null)}
           onCancel={handleCancel}
@@ -1142,9 +1143,22 @@ const paidOffline = (b) =>
     (a, p) => a + (Number(p.amount) || 0),
     0,
   );
+const getRoomCapacity = (room) => {
+  const direct = Number(
+    room?.maxOccupancy ??
+      room?.maxGuests ??
+      room?.capacity ??
+      room?.maxOccupants,
+  );
+  if (Number.isFinite(direct) && direct > 0) return direct;
+  const split =
+    (Number(room?.maxAdults) || 0) + (Number(room?.maxChildren) || 0);
+  return split > 0 ? split : null;
+};
 
 function BookingDrawer({
   booking: b,
+  rooms,
   isManager,
   onClose,
   onCancel,
@@ -1608,6 +1622,7 @@ function BookingDrawer({
       {showModify && (
         <ModifyBookingModal
           booking={b}
+          rooms={rooms}
           onClose={() => setShowModify(false)}
           onSave={async (form) => {
             const r = await onModify(b, form);
@@ -1620,31 +1635,37 @@ function BookingDrawer({
   );
 }
 
-/* ------------------------------------------------------------------ */
-/* Modify booking dialog (pay-at-hotel and walk-in bookings)           */
-/* ------------------------------------------------------------------ */
-function ModifyBookingModal({ booking: b, onClose, onSave }) {
+function ModifyBookingModal({ booking: b, rooms = [], onClose, onSave }) {
   const originalCheckIn = ymd(b.dates.checkIn);
   const originalCheckOut = ymd(b.dates.checkOut);
-  // Stay length is fixed: dates can only shift, never shrink or grow
   const originalNights = Math.round(
     (new Date(originalCheckOut) - new Date(originalCheckIn)) / 86400000,
   );
   const nightsLabel = `${originalNights} night${originalNights > 1 ? "s" : ""}`;
 
+  const roomId = b.roomTypeId?._id || b.roomTypeId;
+  const roomDoc = rooms.find((r) => String(r._id) === String(roomId));
+  const roomName = b.roomTypeId?.name || roomDoc?.name || "Standard Room";
+  const roomCount = Math.max(1, Number(b.roomCount) || 1);
+  const perRoom = getRoomCapacity(roomDoc || b.roomTypeId);
+  const maxGuests = perRoom ? perRoom * roomCount : null;
+
   const [form, setForm] = useState({
     checkIn: originalCheckIn,
     checkOut: originalCheckOut,
-    roomCount: b.roomCount || 1,
     adults: b.occupancy?.adults || 1,
     children: b.occupancy?.children || 0,
   });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
-  const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
+
+  const adults = Number(form.adults) || 0;
+  const children = Number(form.children) || 0;
+  const totalGuests = adults + children;
   const nights = Math.round(
     (new Date(form.checkOut) - new Date(form.checkIn)) / 86400000,
   );
+  const overCapacity = maxGuests != null && totalGuests > maxGuests;
 
   useEffect(() => {
     const onKey = (e) => e.key === "Escape" && !saving && onClose();
@@ -1660,14 +1681,37 @@ function ModifyBookingModal({ booking: b, onClose, onSave }) {
       );
       return;
     }
+    if (!Number.isInteger(adults) || adults < 1) {
+      setError("At least 1 adult is required.");
+      return;
+    }
+    if (!Number.isInteger(children) || children < 0) {
+      setError("Children must be 0 or more.");
+      return;
+    }
+    if (overCapacity) {
+      setError(
+        `This room allows a maximum of ${maxGuests} guest${maxGuests > 1 ? "s" : ""}.`,
+      );
+      return;
+    }
+    const unchanged =
+      form.checkIn === originalCheckIn &&
+      adults === (b.occupancy?.adults || 1) &&
+      children === (b.occupancy?.children || 0);
+    if (unchanged) {
+      setError("Nothing to change. Pick new dates or change the guests.");
+      return;
+    }
+
     setSaving(true);
     setError("");
+    // Room type and room count are never sent: they cannot be changed.
     const r = await onSave({
       checkIn: form.checkIn,
       checkOut: form.checkOut,
-      roomCount: Number(form.roomCount) || 1,
-      adults: Number(form.adults) || 1,
-      children: Number(form.children) || 0,
+      adults,
+      children,
     });
     if (!r.ok) {
       setError(r.message);
@@ -1677,6 +1721,7 @@ function ModifyBookingModal({ booking: b, onClose, onSave }) {
 
   const input =
     "w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20";
+  const locked = `${input} mt-1 cursor-not-allowed bg-slate-50 text-slate-500`;
 
   return (
     <div className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-900/50 p-4">
@@ -1702,6 +1747,16 @@ function ModifyBookingModal({ booking: b, onClose, onSave }) {
           </button>
         </div>
 
+        <label className="block text-xs font-semibold text-slate-600">
+          Room (cannot be changed)
+          <input
+            className={locked}
+            value={`${roomName}${roomCount > 1 ? ` x ${roomCount}` : ""}`}
+            readOnly
+            disabled
+          />
+        </label>
+
         <div className="grid grid-cols-2 gap-3">
           <label className="text-xs font-semibold text-slate-600">
             Check-in
@@ -1716,7 +1771,7 @@ function ModifyBookingModal({ booking: b, onClose, onSave }) {
                 setForm((f) => ({
                   ...f,
                   checkIn: v,
-                  checkOut: addDays(v, originalNights), // same number of nights
+                  checkOut: addDays(v, originalNights),
                 }));
               }}
               required
@@ -1726,7 +1781,7 @@ function ModifyBookingModal({ booking: b, onClose, onSave }) {
             Check-out ({nightsLabel})
             <input
               type="date"
-              className={`${input} mt-1 cursor-not-allowed bg-slate-50 text-slate-500`}
+              className={locked}
               value={form.checkOut}
               readOnly
               disabled
@@ -1739,26 +1794,18 @@ function ModifyBookingModal({ booking: b, onClose, onSave }) {
           and check-out moves with it.
         </p>
 
-        <div className="grid grid-cols-3 gap-3">
-          <label className="text-xs font-semibold text-slate-600">
-            Rooms
-            <input
-              type="number"
-              min="1"
-              max="50"
-              className={`${input} mt-1`}
-              value={form.roomCount}
-              onChange={(e) => set("roomCount", e.target.value)}
-            />
-          </label>
+        <div className="grid grid-cols-2 gap-3">
           <label className="text-xs font-semibold text-slate-600">
             Adults
             <input
               type="number"
               min="1"
+              max={maxGuests ? Math.max(1, maxGuests - children) : undefined}
               className={`${input} mt-1`}
               value={form.adults}
-              onChange={(e) => set("adults", e.target.value)}
+              onChange={(e) =>
+                setForm((f) => ({ ...f, adults: e.target.value }))
+              }
             />
           </label>
           <label className="text-xs font-semibold text-slate-600">
@@ -1766,12 +1813,23 @@ function ModifyBookingModal({ booking: b, onClose, onSave }) {
             <input
               type="number"
               min="0"
+              max={maxGuests ? Math.max(0, maxGuests - adults) : undefined}
               className={`${input} mt-1`}
               value={form.children}
-              onChange={(e) => set("children", e.target.value)}
+              onChange={(e) =>
+                setForm((f) => ({ ...f, children: e.target.value }))
+              }
             />
           </label>
         </div>
+
+        <p
+          className={`text-xs ${overCapacity ? "font-semibold text-rose-600" : "text-slate-500"}`}
+        >
+          {maxGuests
+            ? `Guests: ${totalGuests} of ${maxGuests} maximum (minimum 1).`
+            : `Guests: ${totalGuests}.`}
+        </p>
 
         <p className="rounded-lg bg-slate-50 p-3 text-xs text-slate-600">
           The price is recalculated from your current rates, taxes and the
@@ -1800,7 +1858,7 @@ function ModifyBookingModal({ booking: b, onClose, onSave }) {
           </button>
           <button
             type="submit"
-            disabled={saving}
+            disabled={saving || overCapacity}
             className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-60"
           >
             {saving ? "Saving…" : "Save changes"}

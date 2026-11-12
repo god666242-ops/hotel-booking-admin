@@ -72,6 +72,29 @@ const toInputDate = (d) => {
   return new Date(d).toISOString().slice(0, 10);
 };
 
+/** Add n days to a YYYY-MM-DD string (timezone safe). */
+const addDays = (str, n) => {
+  const [y, m, d] = str.split("-").map(Number);
+  return new Date(Date.UTC(y, m - 1, d + n)).toISOString().slice(0, 10);
+};
+
+/**
+ * Per-room guest capacity. Adjust the field names to match your RoomType
+ * schema (and make sure the public booking API returns them in `roomType`).
+ */
+const getRoomCapacity = (room) => {
+  const direct = Number(
+    room?.maxOccupancy ??
+      room?.maxGuests ??
+      room?.capacity ??
+      room?.maxOccupants,
+  );
+  if (Number.isFinite(direct) && direct > 0) return direct;
+  const split =
+    (Number(room?.maxAdults) || 0) + (Number(room?.maxChildren) || 0);
+  return split > 0 ? split : null;
+};
+
 const validateCode = (v) => {
   const t = v.trim();
   if (!t) return "Enter your booking code.";
@@ -247,7 +270,7 @@ function ManageBookingContent() {
       if (json.data?.booking?.dates) {
         setModCheckIn(toInputDate(json.data.booking.dates.checkIn));
         setModCheckOut(toInputDate(json.data.booking.dates.checkOut));
-        setModAdults(json.data.booking.occupancy?.adults || 2);
+        setModAdults(json.data.booking.occupancy?.adults || 1);
         setModChildren(json.data.booking.occupancy?.children || 0);
       }
     } catch (err) {
@@ -311,6 +334,7 @@ function ManageBookingContent() {
     setModError("");
 
     try {
+      // Room type and room count are never sent: they cannot be changed.
       const payload = {
         email: guestEmail,
         checkIn: modCheckIn,
@@ -349,29 +373,38 @@ function ManageBookingContent() {
           description: `Stay Modification Difference (${data.booking.bookingCode})`,
           order_id: json.data.razorpayOrderId,
           handler: async function (response) {
-            const confirmRes = await fetch(
-              `${API_BASE}/public/${hotelSlug}/bookings/${encodeURIComponent(data.booking.bookingCode)}/modify`,
-              {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  ...payload,
-                  razorpayOrderId: response.razorpay_order_id,
-                  razorpayPaymentId: response.razorpay_payment_id,
-                  razorpaySignature: response.razorpay_signature,
-                }),
-              },
-            );
-            const confirmJson = await confirmRes.json();
-            if (!confirmRes.ok)
-              throw new Error(confirmJson.message || "Payment capture failed.");
+            try {
+              const confirmRes = await fetch(
+                `${API_BASE}/public/${hotelSlug}/bookings/${encodeURIComponent(data.booking.bookingCode)}/modify`,
+                {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    ...payload,
+                    razorpayOrderId: response.razorpay_order_id,
+                    razorpayPaymentId: response.razorpay_payment_id,
+                    razorpaySignature: response.razorpay_signature,
+                  }),
+                },
+              );
+              const confirmJson = await confirmRes.json();
+              if (!confirmRes.ok)
+                throw new Error(
+                  confirmJson.message || "Payment capture failed.",
+                );
 
-            setModSuccess(
-              "Your reservation has been successfully updated and payment received.",
-            );
-            setShowModifyModal(false);
-            setDeltaPreview(null);
-            fetchBooking(hotelSlug, data.booking.bookingCode, guestEmail);
+              setModSuccess(
+                "Your reservation has been successfully updated and payment received.",
+              );
+              setShowModifyModal(false);
+              setDeltaPreview(null);
+              fetchBooking(hotelSlug, data.booking.bookingCode, guestEmail);
+            } catch (err) {
+              setModError(
+                err.message ||
+                  "Payment was received but the update failed. Please contact the hotel.",
+              );
+            }
           },
           prefill: {
             name: data.booking.guest?.name,
@@ -541,6 +574,19 @@ function ManageBookingContent() {
       // clipboard unavailable
     }
   };
+
+  /* ---- Modification rules: nights fixed, room locked, guests <= capacity ---- */
+  const originalNights = Number(data?.booking?.dates?.nights) || 1;
+  const nightsLabel = `${originalNights} night${originalNights > 1 ? "s" : ""}`;
+  const perRoom = getRoomCapacity(data?.roomType);
+  const maxGuests = perRoom
+    ? perRoom * Math.max(1, Number(data?.booking?.roomCount) || 1)
+    : null;
+  const modGuests = (Number(modAdults) || 0) + (Number(modChildren) || 0);
+  const modOverCapacity = maxGuests != null && modGuests > maxGuests;
+  const modInvalidGuests =
+    !(Number(modAdults) >= 1) || !(Number(modChildren) >= 0);
+  const modBlocked = modOverCapacity || modInvalidGuests;
 
   const refundPreview = data?.cancellation?.refundPreview;
   const refundedAmount =
@@ -1067,8 +1113,10 @@ function ManageBookingContent() {
                                 ? "night"
                                 : "nights"}
                             </li>
-                            <li>Number of rooms</li>
-                            <li>Number of adults and children</li>
+                            <li>
+                              Number of guests, from 1 up to the room’s maximum
+                              capacity
+                            </li>
                           </ul>
                         </div>
                         <div>
@@ -1076,9 +1124,9 @@ function ManageBookingContent() {
                             What cannot be changed
                           </p>
                           <ul className="mt-1 list-disc space-y-0.5 pl-5 text-slate-600">
+                            <li>The room type and number of rooms</li>
                             <li>
-                              The number of nights cannot be reduced or
-                              increased
+                              The number of nights (no shortening or extending)
                             </li>
                           </ul>
                         </div>
@@ -1086,10 +1134,10 @@ function ManageBookingContent() {
 
                       <p className="mt-3 rounded-lg bg-white/70 p-2.5 text-slate-600">
                         <span className="font-semibold text-slate-900">
-                          Want to stay longer?
+                          Want a different room or more nights?
                         </span>{" "}
-                        To add more days, please make a fresh booking for the
-                        extra nights.
+                        Please make a fresh booking for the room or the extra
+                        nights.
                       </p>
 
                       <div className="mt-2.5 flex flex-wrap gap-x-5 gap-y-1 font-medium">
@@ -1120,6 +1168,15 @@ function ManageBookingContent() {
                         onClick={() => {
                           setModError("");
                           setDeltaPreview(null);
+                          // Reset the form to the booking's current values
+                          setModCheckIn(
+                            toInputDate(data.booking.dates.checkIn),
+                          );
+                          setModCheckOut(
+                            toInputDate(data.booking.dates.checkOut),
+                          );
+                          setModAdults(data.booking.occupancy?.adults || 1);
+                          setModChildren(data.booking.occupancy?.children || 0);
                           setShowModifyModal(true);
                         }}
                         className="inline-flex items-center justify-center gap-2 rounded-xl bg-slate-900 px-5 py-2.5 text-sm font-semibold text-white hover:bg-slate-800 transition"
@@ -1178,7 +1235,7 @@ function ManageBookingContent() {
                   Change your reservation
                 </h3>
                 <p className="text-xs text-slate-500 mt-0.5">
-                  Update stay dates or guests for booking{" "}
+                  Shift your stay dates or change guests for booking{" "}
                   <span className="font-mono font-semibold">
                     {data.booking.bookingCode}
                   </span>
@@ -1194,6 +1251,18 @@ function ManageBookingContent() {
               </button>
             </div>
 
+            <div className="rounded-xl bg-slate-50 border border-slate-200 p-3 text-xs">
+              <div className="font-semibold text-slate-700">
+                Room (cannot be changed)
+              </div>
+              <div className="mt-0.5 text-slate-900">
+                {data.roomType?.name}
+                {Number(data.booking.roomCount) > 1
+                  ? ` x ${data.booking.roomCount}`
+                  : ""}
+              </div>
+            </div>
+
             <div className="grid grid-cols-2 gap-3 text-xs">
               <div>
                 <label className="block font-semibold text-slate-700 mb-1">
@@ -1203,23 +1272,33 @@ function ManageBookingContent() {
                   type="date"
                   min={new Date().toISOString().slice(0, 10)}
                   value={modCheckIn}
-                  onChange={(e) => setModCheckIn(e.target.value)}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    if (!v) return;
+                    setModCheckIn(v);
+                    setModCheckOut(addDays(v, originalNights));
+                    setDeltaPreview(null);
+                  }}
                   className="w-full px-3 py-2 border border-slate-200 rounded-xl text-slate-900"
                 />
               </div>
               <div>
                 <label className="block font-semibold text-slate-700 mb-1">
-                  New check-out
+                  Check-out ({nightsLabel})
                 </label>
                 <input
                   type="date"
-                  min={modCheckIn || new Date().toISOString().slice(0, 10)}
                   value={modCheckOut}
-                  onChange={(e) => setModCheckOut(e.target.value)}
-                  className="w-full px-3 py-2 border border-slate-200 rounded-xl text-slate-900"
+                  readOnly
+                  disabled
+                  className="w-full px-3 py-2 border border-slate-200 rounded-xl bg-slate-50 text-slate-500 cursor-not-allowed"
                 />
               </div>
             </div>
+            <p className="text-[11px] text-slate-500 -mt-2">
+              Your stay is fixed at {nightsLabel}. Pick a new check-in date and
+              check-out moves with it.
+            </p>
 
             <div className="grid grid-cols-2 gap-3 text-xs">
               <div>
@@ -1229,9 +1308,16 @@ function ManageBookingContent() {
                 <input
                   type="number"
                   min="1"
-                  max="10"
+                  max={
+                    maxGuests
+                      ? Math.max(1, maxGuests - (Number(modChildren) || 0))
+                      : undefined
+                  }
                   value={modAdults}
-                  onChange={(e) => setModAdults(e.target.value)}
+                  onChange={(e) => {
+                    setModAdults(e.target.value);
+                    setDeltaPreview(null);
+                  }}
                   className="w-full px-3 py-2 border border-slate-200 rounded-xl text-slate-900"
                 />
               </div>
@@ -1242,19 +1328,35 @@ function ManageBookingContent() {
                 <input
                   type="number"
                   min="0"
-                  max="6"
+                  max={
+                    maxGuests
+                      ? Math.max(0, maxGuests - (Number(modAdults) || 0))
+                      : undefined
+                  }
                   value={modChildren}
-                  onChange={(e) => setModChildren(e.target.value)}
+                  onChange={(e) => {
+                    setModChildren(e.target.value);
+                    setDeltaPreview(null);
+                  }}
                   className="w-full px-3 py-2 border border-slate-200 rounded-xl text-slate-900"
                 />
               </div>
             </div>
+            <p
+              className={`text-[11px] -mt-2 ${modBlocked ? "font-semibold text-rose-600" : "text-slate-500"}`}
+            >
+              {maxGuests
+                ? `Guests: ${modGuests} of ${maxGuests} maximum (minimum 1).`
+                : `Guests: ${modGuests}.`}
+            </p>
 
             <div className="flex justify-end">
               <button
                 type="button"
                 onClick={handlePreviewModification}
-                disabled={previewLoading || !modCheckIn || !modCheckOut}
+                disabled={
+                  previewLoading || !modCheckIn || !modCheckOut || modBlocked
+                }
                 className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl text-xs font-semibold transition disabled:opacity-50"
               >
                 {previewLoading ? (
@@ -1330,7 +1432,7 @@ function ManageBookingContent() {
               <button
                 type="button"
                 onClick={handleConfirmModification}
-                disabled={modifying || !deltaPreview}
+                disabled={modifying || !deltaPreview || modBlocked}
                 className="rounded-xl bg-slate-900 px-5 py-2 text-xs font-semibold text-white hover:bg-slate-800 transition disabled:opacity-50 inline-flex items-center gap-1.5"
               >
                 {modifying && <Loader2 size={13} className="animate-spin" />}
