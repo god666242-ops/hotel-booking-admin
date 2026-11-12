@@ -268,12 +268,19 @@ export default function GatewaySettingsPage() {
 
             <div className="bg-amber-50/80 border border-amber-200/80 text-amber-900 rounded-xl p-3.5 flex items-start gap-2.5">
               <Info size={15} className="text-amber-600 shrink-0 mt-0.5" />
-              <span>
-                <b>Website domain verification:</b> Before embedding the booking
-                widget on your live website, make sure your website domain is
-                registered in your property settings and verified with our
-                support team so online checkout works without interruption.
-              </span>
+              <div className="space-y-1.5 text-sm">
+                <p>
+                  <b>Website domain verification required:</b> Before collecting
+                  payments through your own Razorpay account, verify your
+                  website domain so online checkout works without interruption.
+                </p>
+                <p>
+                  <b>How to verify in Razorpay:</b> Log in to your Razorpay
+                  Dashboard, go to <b>Account &amp; Settings</b> &rarr;{" "}
+                  <b>Business website details</b>, and add/verify the exact
+                  domain where the widget is embedded.
+                </p>
+              </div>
             </div>
 
             <div className="space-y-4">
