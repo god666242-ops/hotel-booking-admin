@@ -16,6 +16,24 @@ import {
 import Link from 'next/link';
 import { useAuth } from '../../context/AuthContext';
 
+const formatDay = (d) =>
+  new Date(d).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
+
+function statusBadge(status) {
+  const tone =
+    status === 'CONFIRMED'
+      ? ['bg-emerald-50 text-emerald-700 ring-1 ring-emerald-600/20', 'bg-emerald-600']
+      : status === 'CANCELLED'
+      ? ['bg-rose-50 text-rose-700 ring-1 ring-rose-600/20', 'bg-rose-600']
+      : ['bg-amber-50 text-amber-700 ring-1 ring-amber-600/20', 'bg-amber-600'];
+  return (
+    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold shrink-0 ${tone[0]}`}>
+      <span className={`w-1.5 h-1.5 rounded-full ${tone[1]}`} />
+      {status}
+    </span>
+  );
+}
+
 export default function DashboardOverviewPage() {
   const [stats, setStats] = useState({
     totalBookings: 0,
@@ -67,10 +85,10 @@ export default function DashboardOverviewPage() {
   }, [loadDashboard]);
 
   return (
-    <div className="space-y-8 max-w-7xl">
+    <div className="space-y-6 sm:space-y-8 max-w-7xl">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-slate-900">Dashboard Overview</h1>
+          <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900">Dashboard Overview</h1>
           <p className="text-sm text-slate-500 mt-1">Real-time booking revenue, confirmed stays & property health</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -100,7 +118,7 @@ export default function DashboardOverviewPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-6">
         <StatCard
           label="Total Direct Bookings"
           value={loading ? '...' : stats.totalBookings}
@@ -150,7 +168,7 @@ export default function DashboardOverviewPage() {
       </div>
 
       <div className="bg-white border border-slate-200/80 rounded-2xl shadow-sm overflow-hidden">
-        <div className="p-6 border-b border-slate-100 flex justify-between items-center">
+        <div className="p-4 sm:p-6 border-b border-slate-100 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 sm:gap-4">
           <div>
             <h2 className="text-base font-bold text-slate-900">Recent Direct Reservations</h2>
             <p className="text-xs text-slate-400 mt-0.5">Real-time feed of guest check-ins and payments</p>
@@ -164,7 +182,35 @@ export default function DashboardOverviewPage() {
           </Link>
         </div>
 
-        <div className="overflow-x-auto">
+        {/* Mobile: stacked cards */}
+        <ul className="md:hidden divide-y divide-slate-100">
+          {stats.recentBookings.map((b) => (
+            <li key={b._id} className="p-4 space-y-2">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="font-semibold text-slate-900 truncate">{b.guest?.name}</div>
+                  <div className="text-xs text-slate-400 truncate">{b.guest?.phone}</div>
+                </div>
+                {statusBadge(b.status)}
+              </div>
+              <div className="flex items-center justify-between gap-3 text-xs">
+                <span className="font-mono font-medium text-slate-900 truncate">{b.bookingCode}</span>
+                <span className="font-bold text-sm text-slate-900 shrink-0">
+                  ₹{b.billing?.grandTotal?.toLocaleString('en-IN')}
+                </span>
+              </div>
+              <div className="text-xs text-slate-700">
+                <span className="font-medium">{formatDay(b.dates?.checkIn)}</span>
+                <span className="text-slate-400 mx-1.5">&rarr;</span>
+                <span className="font-medium">{formatDay(b.dates?.checkOut)}</span>
+                <span className="text-slate-400 ml-2">({b.dates?.nights}N)</span>
+              </div>
+            </li>
+          ))}
+        </ul>
+
+        {/* Tablet/desktop: table */}
+        <div className="hidden md:block overflow-x-auto">
           <table className="w-full text-left text-sm text-slate-600">
             <thead className="bg-slate-50/75 text-[11px] font-bold text-slate-500 uppercase tracking-wider border-b border-slate-100">
               <tr>
@@ -199,31 +245,18 @@ export default function DashboardOverviewPage() {
                     ₹{b.billing?.grandTotal?.toLocaleString('en-IN')}
                   </td>
                   <td className="px-6 py-4">
-                    <span
-                      className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold ${
-                        b.status === 'CONFIRMED'
-                          ? 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-600/20'
-                          : b.status === 'CANCELLED'
-                          ? 'bg-rose-50 text-rose-700 ring-1 ring-rose-600/20'
-                          : 'bg-amber-50 text-amber-700 ring-1 ring-amber-600/20'
-                      }`}
-                    >
-                      <span className={`w-1.5 h-1.5 rounded-full ${
-                        b.status === 'CONFIRMED' ? 'bg-emerald-600' : b.status === 'CANCELLED' ? 'bg-rose-600' : 'bg-amber-600'
-                      }`} />
-                      {b.status}
-                    </span>
+                    {statusBadge(b.status)}
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
-          {stats.recentBookings.length === 0 && !loading && (
-            <div className="py-12 text-center text-slate-400 text-sm">
-              No reservations captured yet. Test your embed widget to make your first booking!
-            </div>
-          )}
         </div>
+        {stats.recentBookings.length === 0 && !loading && (
+          <div className="py-12 px-4 text-center text-slate-400 text-sm">
+            No reservations captured yet. Test your embed widget to make your first booking!
+          </div>
+        )}
       </div>
     </div>
   );
