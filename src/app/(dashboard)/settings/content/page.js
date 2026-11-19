@@ -1,7 +1,7 @@
-'use client';
+"use client";
 
-import { useState, useEffect } from 'react';
-import { fetchWithAuth } from '../../../../lib/api';
+import { useState, useEffect } from "react";
+import { fetchWithAuth } from "../../../../lib/api";
 import {
   Sparkles,
   MapPin,
@@ -11,7 +11,7 @@ import {
   Plus,
   Trash2,
   AlertCircle,
-} from 'lucide-react';
+} from "lucide-react";
 
 /* ------------------------------------------------------------------ */
 /* Constants & helpers                                                 */
@@ -20,19 +20,19 @@ const DEFAULT_FACTS = {
   numberOfRestaurants: 2,
   numberOfFloors: 4,
   totalRooms: 20,
-  airportDistanceKm: '',
-  railwayStationDistanceKm: '',
+  airportDistanceKm: "",
+  railwayStationDistanceKm: "",
   petFriendly: false,
   coupleFriendly: true,
 };
 
 const DEFAULT_ADDRESS = {
-  street: '',
-  city: '',
-  state: '',
-  pincode: '',
-  landmark: '',
-  mapEmbedUrl: '',
+  street: "",
+  city: "",
+  state: "",
+  pincode: "",
+  landmark: "",
+  mapEmbedUrl: "",
 };
 
 const LIMITS = {
@@ -43,12 +43,15 @@ const LIMITS = {
   announcement: 250,
   distance: 60,
   landmark: 120,
+  street: 200,
+  city: 80,
+  state: 80,
   mapUrl: 1000,
 };
 
 // Stops "-", "+", "." and "e" in whole-number inputs
 const blockInvalidKeys = (e) => {
-  if (['-', '+', 'e', 'E', '.'].includes(e.key)) e.preventDefault();
+  if (["-", "+", "e", "E", "."].includes(e.key)) e.preventDefault();
 };
 
 const clean = (list) => list.map((s) => String(s).trim()).filter(Boolean);
@@ -56,7 +59,10 @@ const clean = (list) => list.map((s) => String(s).trim()).filter(Boolean);
 const isValidMapUrl = (value) => {
   try {
     const u = new URL(value);
-    return u.protocol === 'https:' && (u.hostname === 'google.com' || u.hostname.endsWith('.google.com'));
+    return (
+      u.protocol === "https:" &&
+      (u.hostname === "google.com" || u.hostname.endsWith(".google.com"))
+    );
   } catch {
     return false;
   }
@@ -65,11 +71,11 @@ const isValidMapUrl = (value) => {
 export default function HotelContentSettingsPage() {
   const [loading, setLoading] = useState(false);
   const [saved, setSaved] = useState(false);
-  const [formError, setFormError] = useState('');
-  const [activeTab, setActiveTab] = useState('reasons');
+  const [formError, setFormError] = useState("");
+  const [activeTab, setActiveTab] = useState("reasons");
 
   const [form, setForm] = useState({
-    announcement: { enabled: true, text: '' },
+    announcement: { enabled: true, text: "" },
     topReasonsToBook: [],
     topAmenities: [],
     languagesSpoken: [],
@@ -80,12 +86,16 @@ export default function HotelContentSettingsPage() {
   });
 
   useEffect(() => {
-    fetchWithAuth('/hotel')
+    fetchWithAuth("/hotel")
       .then((res) => {
         const h = res.data;
         if (h) {
           setForm({
-            announcement: { enabled: true, text: '', ...(h.announcement || {}) },
+            announcement: {
+              enabled: true,
+              text: "",
+              ...(h.announcement || {}),
+            },
             topReasonsToBook: h.topReasonsToBook || [],
             topAmenities: h.topAmenities || [],
             languagesSpoken: h.languagesSpoken || [],
@@ -96,36 +106,45 @@ export default function HotelContentSettingsPage() {
           });
         }
       })
-      .catch((err) => setFormError(err.message || 'Could not load property content.'));
+      .catch((err) =>
+        setFormError(err.message || "Could not load property content."),
+      );
   }, []);
 
   // Every edit goes through this so the "saved" banner hides as soon as something changes
   const update = (fn) => {
     setSaved(false);
-    setFormError('');
+    setFormError("");
     setForm(fn);
   };
 
   /* ---------------- field helpers ---------------- */
   const setFact = (key, value) =>
-    update((prev) => ({ ...prev, helpfulFacts: { ...prev.helpfulFacts, [key]: value } }));
+    update((prev) => ({
+      ...prev,
+      helpfulFacts: { ...prev.helpfulFacts, [key]: value },
+    }));
 
   const setAddress = (key, value) =>
     update((prev) => ({ ...prev, address: { ...prev.address, [key]: value } }));
 
   const setAnnouncement = (key, value) =>
-    update((prev) => ({ ...prev, announcement: { ...prev.announcement, [key]: value } }));
+    update((prev) => ({
+      ...prev,
+      announcement: { ...prev.announcement, [key]: value },
+    }));
 
   // Whole numbers only, never negative, capped at `max`
   const factNumberHandler = (key, max) => (e) => {
     const val = e.target.value;
-    if (val === '') return setFact(key, '');
+    if (val === "") return setFact(key, "");
     const n = Number(val);
     if (Number.isNaN(n) || n < 0 || !Number.isInteger(n) || n > max) return;
     setFact(key, val);
   };
 
-  const addArrayItem = (key) => update((prev) => ({ ...prev, [key]: [...prev[key], ''] }));
+  const addArrayItem = (key) =>
+    update((prev) => ({ ...prev, [key]: [...prev[key], ""] }));
 
   const updateArrayItem = (key, idx, val) =>
     update((prev) => {
@@ -135,10 +154,16 @@ export default function HotelContentSettingsPage() {
     });
 
   const removeArrayItem = (key, idx) =>
-    update((prev) => ({ ...prev, [key]: prev[key].filter((_, i) => i !== idx) }));
+    update((prev) => ({
+      ...prev,
+      [key]: prev[key].filter((_, i) => i !== idx),
+    }));
 
   const addFaq = () =>
-    update((prev) => ({ ...prev, faqs: [...prev.faqs, { question: '', answer: '' }] }));
+    update((prev) => ({
+      ...prev,
+      faqs: [...prev.faqs, { question: "", answer: "" }],
+    }));
 
   const updateFaq = (idx, field, val) =>
     update((prev) => ({
@@ -146,7 +171,11 @@ export default function HotelContentSettingsPage() {
       faqs: prev.faqs.map((f, i) => (i === idx ? { ...f, [field]: val } : f)),
     }));
 
-  const removeFaq = (idx) => update((prev) => ({ ...prev, faqs: prev.faqs.filter((_, i) => i !== idx) }));
+  const removeFaq = (idx) =>
+    update((prev) => ({
+      ...prev,
+      faqs: prev.faqs.filter((_, i) => i !== idx),
+    }));
 
   /* ---------------- validation ---------------- */
   // Returns { tab, message } for the first problem, or null
@@ -154,30 +183,49 @@ export default function HotelContentSettingsPage() {
     const f = form.helpfulFacts;
 
     const rooms = Number(f.totalRooms);
-    if (f.totalRooms === '' || !Number.isInteger(rooms) || rooms < 1) {
-      return { tab: 'facts', message: 'Total rooms must be a whole number, 1 or more.' };
+    if (f.totalRooms === "" || !Number.isInteger(rooms) || rooms < 1) {
+      return {
+        tab: "facts",
+        message: "Total rooms must be a whole number, 1 or more.",
+      };
     }
     const floors = Number(f.numberOfFloors);
-    if (f.numberOfFloors === '' || !Number.isInteger(floors) || floors < 1) {
-      return { tab: 'facts', message: 'Floors must be a whole number, 1 or more.' };
+    if (f.numberOfFloors === "" || !Number.isInteger(floors) || floors < 1) {
+      return {
+        tab: "facts",
+        message: "Floors must be a whole number, 1 or more.",
+      };
     }
     const restaurants = Number(f.numberOfRestaurants);
-    if (f.numberOfRestaurants === '' || !Number.isInteger(restaurants) || restaurants < 0) {
-      return { tab: 'facts', message: 'Number of restaurants must be a whole number, 0 or more.' };
+    if (
+      f.numberOfRestaurants === "" ||
+      !Number.isInteger(restaurants) ||
+      restaurants < 0
+    ) {
+      return {
+        tab: "facts",
+        message: "Number of restaurants must be a whole number, 0 or more.",
+      };
+    }
+
+    const pin = form.address.pincode.trim();
+    if (pin && !/^\d{6}$/.test(pin)) {
+      return { tab: "facts", message: "Pincode must be 6 digits." };
     }
 
     const mapUrl = form.address.mapEmbedUrl.trim();
     if (mapUrl && !isValidMapUrl(mapUrl)) {
       return {
-        tab: 'facts',
-        message: 'Google Maps embed URL must start with https:// and be a google.com link.',
+        tab: "facts",
+        message:
+          "Google Maps embed URL must start with https:// and be a google.com link.",
       };
     }
 
     if (form.announcement.enabled && !form.announcement.text.trim()) {
       return {
-        tab: 'announcement',
-        message: 'Enter the banner text, or turn off the announcement banner.',
+        tab: "announcement",
+        message: "Enter the banner text, or turn off the announcement banner.",
       };
     }
 
@@ -185,7 +233,11 @@ export default function HotelContentSettingsPage() {
       const q = faq.question.trim();
       const a = faq.answer.trim();
       if ((q && !a) || (!q && a)) {
-        return { tab: 'faqs', message: 'Each FAQ needs both a question and an answer. Fill in or remove the incomplete ones.' };
+        return {
+          tab: "faqs",
+          message:
+            "Each FAQ needs both a question and an answer. Fill in or remove the incomplete ones.",
+        };
       }
     }
 
@@ -204,7 +256,7 @@ export default function HotelContentSettingsPage() {
       return;
     }
 
-    setFormError('');
+    setFormError("");
     setLoading(true);
     setSaved(false);
 
@@ -224,10 +276,14 @@ export default function HotelContentSettingsPage() {
         numberOfFloors: Number(form.helpfulFacts.numberOfFloors),
         numberOfRestaurants: Number(form.helpfulFacts.numberOfRestaurants),
         airportDistanceKm: form.helpfulFacts.airportDistanceKm.trim(),
-        railwayStationDistanceKm: form.helpfulFacts.railwayStationDistanceKm.trim(),
+        railwayStationDistanceKm:
+          form.helpfulFacts.railwayStationDistanceKm.trim(),
       },
       address: {
-        ...form.address,
+        street: form.address.street.trim(),
+        city: form.address.city.trim(),
+        state: form.address.state.trim(),
+        pincode: form.address.pincode.trim(),
         landmark: form.address.landmark.trim(),
         mapEmbedUrl: form.address.mapEmbedUrl.trim(),
       },
@@ -237,8 +293,8 @@ export default function HotelContentSettingsPage() {
     };
 
     try {
-      await fetchWithAuth('/hotel/trust-content', {
-        method: 'PUT',
+      await fetchWithAuth("/hotel/trust-content", {
+        method: "PUT",
         body: JSON.stringify(payload),
       });
 
@@ -263,28 +319,34 @@ export default function HotelContentSettingsPage() {
   };
 
   const tabs = [
-    { id: 'reasons', label: 'Reasons & Amenities', icon: Sparkles },
-    { id: 'facts', label: 'Helpful Facts & Location', icon: MapPin },
-    { id: 'faqs', label: 'FAQs & Policies', icon: HelpCircle },
-    { id: 'announcement', label: 'Announcements', icon: Info },
+    { id: "reasons", label: "Reasons & Amenities", icon: Sparkles },
+    { id: "facts", label: "Helpful Facts & Location", icon: MapPin },
+    { id: "faqs", label: "FAQs & Policies", icon: HelpCircle },
+    { id: "announcement", label: "Announcements", icon: Info },
   ];
 
   const inputBase =
-    'w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-slate-900';
+    "w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-slate-900";
 
   return (
     <div className="max-w-4xl space-y-6">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight text-slate-900">Property Trust & Guest Guide</h1>
+        <h1 className="text-2xl font-bold tracking-tight text-slate-900">
+          Property Trust & Guest Guide
+        </h1>
         <p className="text-sm text-slate-500 mt-1">
-          Add dynamic amenities, maps, FAQs, and booking perks displayed directly inside the customer reservation drawer.
+          Add dynamic amenities, maps, FAQs, and booking perks displayed
+          directly inside the customer reservation drawer.
         </p>
       </div>
 
       {saved && (
         <div className="p-4 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-2xl text-sm flex items-center gap-2">
           <CheckCircle2 size={18} className="text-emerald-600 shrink-0" />
-          <span>All content details updated! Changes are live on your booking widget.</span>
+          <span>
+            All content details updated! Changes are live on your booking
+            widget.
+          </span>
         </div>
       )}
 
@@ -307,8 +369,8 @@ export default function HotelContentSettingsPage() {
               onClick={() => setActiveTab(t.id)}
               className={`flex items-center gap-2 px-4 py-3 text-xs font-semibold border-b-2 transition -mb-px whitespace-nowrap ${
                 active
-                  ? 'border-slate-900 text-slate-900'
-                  : 'border-transparent text-slate-500 hover:text-slate-700'
+                  ? "border-slate-900 text-slate-900"
+                  : "border-transparent text-slate-500 hover:text-slate-700"
               }`}
             >
               <Icon size={15} />
@@ -318,19 +380,27 @@ export default function HotelContentSettingsPage() {
         })}
       </div>
 
-      <form onSubmit={handleSave} className="bg-white border border-slate-200/80 rounded-2xl p-6 sm:p-8 space-y-6 shadow-sm">
+      <form
+        onSubmit={handleSave}
+        className="bg-white border border-slate-200/80 rounded-2xl p-6 sm:p-8 space-y-6 shadow-sm"
+      >
         {/* TAB 1: REASONS & AMENITIES */}
-        {activeTab === 'reasons' && (
+        {activeTab === "reasons" && (
           <div className="space-y-6">
             <div>
               <div className="flex justify-between items-center mb-2">
                 <div>
-                  <h3 className="text-sm font-bold text-slate-900">Top Reasons to Book Direct</h3>
-                  <p className="text-xs text-slate-400">Highlighted perks shown at the top of the guest booking drawer</p>
+                  <h3 className="text-sm font-bold text-slate-900">
+                    Top Reasons to Book Direct
+                  </h3>
+                  <p className="text-xs text-slate-400">
+                    Highlighted perks shown at the top of the guest booking
+                    drawer
+                  </p>
                 </div>
                 <button
                   type="button"
-                  onClick={() => addArrayItem('topReasonsToBook')}
+                  onClick={() => addArrayItem("topReasonsToBook")}
                   className="inline-flex items-center gap-1 text-xs font-semibold text-blue-600 hover:text-blue-700"
                 >
                   <Plus size={14} /> Add Reason
@@ -346,9 +416,16 @@ export default function HotelContentSettingsPage() {
                       placeholder="e.g. Free breakfast for direct bookings"
                       className="flex-1 px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium focus:bg-white focus:outline-none focus:ring-2 focus:ring-slate-900"
                       value={item}
-                      onChange={(e) => updateArrayItem('topReasonsToBook', idx, e.target.value)}
+                      onChange={(e) =>
+                        updateArrayItem("topReasonsToBook", idx, e.target.value)
+                      }
                     />
-                    <button type="button" onClick={() => removeArrayItem('topReasonsToBook', idx)} className="text-slate-400 hover:text-rose-600" aria-label="Remove reason">
+                    <button
+                      type="button"
+                      onClick={() => removeArrayItem("topReasonsToBook", idx)}
+                      className="text-slate-400 hover:text-rose-600"
+                      aria-label="Remove reason"
+                    >
                       <Trash2 size={15} />
                     </button>
                   </div>
@@ -359,12 +436,16 @@ export default function HotelContentSettingsPage() {
             <div className="pt-4 border-t border-slate-100">
               <div className="flex justify-between items-center mb-2">
                 <div>
-                  <h3 className="text-sm font-bold text-slate-900">Featured Hotel Amenities</h3>
-                  <p className="text-xs text-slate-400">Key property facilities shown as interactive badges</p>
+                  <h3 className="text-sm font-bold text-slate-900">
+                    Featured Hotel Amenities
+                  </h3>
+                  <p className="text-xs text-slate-400">
+                    Key property facilities shown as interactive badges
+                  </p>
                 </div>
                 <button
                   type="button"
-                  onClick={() => addArrayItem('topAmenities')}
+                  onClick={() => addArrayItem("topAmenities")}
                   className="inline-flex items-center gap-1 text-xs font-semibold text-blue-600 hover:text-blue-700"
                 >
                   <Plus size={14} /> Add Amenity
@@ -380,9 +461,16 @@ export default function HotelContentSettingsPage() {
                       placeholder="e.g. Swimming pool"
                       className="flex-1 px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium focus:bg-white focus:outline-none focus:ring-2 focus:ring-slate-900"
                       value={item}
-                      onChange={(e) => updateArrayItem('topAmenities', idx, e.target.value)}
+                      onChange={(e) =>
+                        updateArrayItem("topAmenities", idx, e.target.value)
+                      }
                     />
-                    <button type="button" onClick={() => removeArrayItem('topAmenities', idx)} className="text-slate-400 hover:text-rose-600" aria-label="Remove amenity">
+                    <button
+                      type="button"
+                      onClick={() => removeArrayItem("topAmenities", idx)}
+                      className="text-slate-400 hover:text-rose-600"
+                      aria-label="Remove amenity"
+                    >
                       <Trash2 size={15} />
                     </button>
                   </div>
@@ -393,12 +481,16 @@ export default function HotelContentSettingsPage() {
             <div className="pt-4 border-t border-slate-100">
               <div className="flex justify-between items-center mb-2">
                 <div>
-                  <h3 className="text-sm font-bold text-slate-900">Languages Spoken by Staff</h3>
-                  <p className="text-xs text-slate-400">Reassures guests for easy on-site communication</p>
+                  <h3 className="text-sm font-bold text-slate-900">
+                    Languages Spoken by Staff
+                  </h3>
+                  <p className="text-xs text-slate-400">
+                    Reassures guests for easy on-site communication
+                  </p>
                 </div>
                 <button
                   type="button"
-                  onClick={() => addArrayItem('languagesSpoken')}
+                  onClick={() => addArrayItem("languagesSpoken")}
                   className="inline-flex items-center gap-1 text-xs font-semibold text-blue-600 hover:text-blue-700"
                 >
                   <Plus size={14} /> Add Language
@@ -407,16 +499,26 @@ export default function HotelContentSettingsPage() {
 
               <div className="flex flex-wrap gap-2">
                 {form.languagesSpoken.map((lang, idx) => (
-                  <div key={idx} className="flex items-center gap-1.5 bg-slate-100 px-3 py-1.5 rounded-lg border border-slate-200">
+                  <div
+                    key={idx}
+                    className="flex items-center gap-1.5 bg-slate-100 px-3 py-1.5 rounded-lg border border-slate-200"
+                  >
                     <input
                       type="text"
                       maxLength={LIMITS.language}
                       placeholder="Language"
                       className="bg-transparent text-xs font-semibold text-slate-800 w-24 outline-none"
                       value={lang}
-                      onChange={(e) => updateArrayItem('languagesSpoken', idx, e.target.value)}
+                      onChange={(e) =>
+                        updateArrayItem("languagesSpoken", idx, e.target.value)
+                      }
                     />
-                    <button type="button" onClick={() => removeArrayItem('languagesSpoken', idx)} className="text-slate-400 hover:text-rose-600" aria-label="Remove language">
+                    <button
+                      type="button"
+                      onClick={() => removeArrayItem("languagesSpoken", idx)}
+                      className="text-slate-400 hover:text-rose-600"
+                      aria-label="Remove language"
+                    >
                       <Trash2 size={13} />
                     </button>
                   </div>
@@ -427,13 +529,17 @@ export default function HotelContentSettingsPage() {
         )}
 
         {/* TAB 2: HELPFUL FACTS & LOCATION */}
-        {activeTab === 'facts' && (
+        {activeTab === "facts" && (
           <div className="space-y-6">
             <div>
-              <h3 className="text-sm font-bold text-slate-900 mb-3">Key Property Facts</h3>
+              <h3 className="text-sm font-bold text-slate-900 mb-3">
+                Key Property Facts
+              </h3>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">Total Rooms</label>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    Total Rooms
+                  </label>
                   <input
                     type="number"
                     required
@@ -444,11 +550,13 @@ export default function HotelContentSettingsPage() {
                     onKeyDown={blockInvalidKeys}
                     className={inputBase}
                     value={form.helpfulFacts.totalRooms}
-                    onChange={factNumberHandler('totalRooms', 1000)}
+                    onChange={factNumberHandler("totalRooms", 1000)}
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">Number of Restaurants</label>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    Number of Restaurants
+                  </label>
                   <input
                     type="number"
                     required
@@ -459,11 +567,13 @@ export default function HotelContentSettingsPage() {
                     onKeyDown={blockInvalidKeys}
                     className={inputBase}
                     value={form.helpfulFacts.numberOfRestaurants}
-                    onChange={factNumberHandler('numberOfRestaurants', 50)}
+                    onChange={factNumberHandler("numberOfRestaurants", 50)}
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">Floors</label>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    Floors
+                  </label>
                   <input
                     type="number"
                     required
@@ -474,32 +584,40 @@ export default function HotelContentSettingsPage() {
                     onKeyDown={blockInvalidKeys}
                     className={inputBase}
                     value={form.helpfulFacts.numberOfFloors}
-                    onChange={factNumberHandler('numberOfFloors', 200)}
+                    onChange={factNumberHandler("numberOfFloors", 200)}
                   />
                 </div>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-3">
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">Nearest Airport Distance</label>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    Nearest Airport Distance
+                  </label>
                   <input
                     type="text"
                     maxLength={LIMITS.distance}
                     className={inputBase}
                     placeholder="e.g. 15 km (30 mins drive)"
                     value={form.helpfulFacts.airportDistanceKm}
-                    onChange={(e) => setFact('airportDistanceKm', e.target.value)}
+                    onChange={(e) =>
+                      setFact("airportDistanceKm", e.target.value)
+                    }
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">Railway Station Distance</label>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    Railway Station Distance
+                  </label>
                   <input
                     type="text"
                     maxLength={LIMITS.distance}
                     className={inputBase}
                     placeholder="e.g. 4 km (10 mins drive)"
                     value={form.helpfulFacts.railwayStationDistanceKm}
-                    onChange={(e) => setFact('railwayStationDistanceKm', e.target.value)}
+                    onChange={(e) =>
+                      setFact("railwayStationDistanceKm", e.target.value)
+                    }
                   />
                 </div>
               </div>
@@ -509,7 +627,9 @@ export default function HotelContentSettingsPage() {
                   <input
                     type="checkbox"
                     checked={Boolean(form.helpfulFacts.coupleFriendly)}
-                    onChange={(e) => setFact('coupleFriendly', e.target.checked)}
+                    onChange={(e) =>
+                      setFact("coupleFriendly", e.target.checked)
+                    }
                     className="rounded"
                   />
                   <span>Couple Friendly Property</span>
@@ -519,7 +639,7 @@ export default function HotelContentSettingsPage() {
                   <input
                     type="checkbox"
                     checked={Boolean(form.helpfulFacts.petFriendly)}
-                    onChange={(e) => setFact('petFriendly', e.target.checked)}
+                    onChange={(e) => setFact("petFriendly", e.target.checked)}
                     className="rounded"
                   />
                   <span>Pet Friendly</span>
@@ -528,31 +648,96 @@ export default function HotelContentSettingsPage() {
             </div>
 
             <div className="pt-4 border-t border-slate-100 space-y-3">
-              <h3 className="text-sm font-bold text-slate-900">Map & Landmark</h3>
+              <h3 className="text-sm font-bold text-slate-900">Address</h3>
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">Prominent Landmark</label>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  Street / Area
+                </label>
+                <input
+                  type="text"
+                  maxLength={LIMITS.street}
+                  className={inputBase}
+                  placeholder="e.g. Beach Road, Near Light House"
+                  value={form.address.street}
+                  onChange={(e) => setAddress("street", e.target.value)}
+                />
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    City
+                  </label>
+                  <input
+                    type="text"
+                    maxLength={LIMITS.city}
+                    className={inputBase}
+                    value={form.address.city}
+                    onChange={(e) => setAddress("city", e.target.value)}
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    State
+                  </label>
+                  <input
+                    type="text"
+                    maxLength={LIMITS.state}
+                    className={inputBase}
+                    value={form.address.state}
+                    onChange={(e) => setAddress("state", e.target.value)}
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    Pincode
+                  </label>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    maxLength={6}
+                    className={inputBase}
+                    value={form.address.pincode}
+                    onChange={(e) =>
+                      setAddress("pincode", e.target.value.replace(/\D/g, ""))
+                    }
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="pt-4 border-t border-slate-100 space-y-3">
+              <h3 className="text-sm font-bold text-slate-900">
+                Map & Landmark
+              </h3>
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  Prominent Landmark
+                </label>
                 <input
                   type="text"
                   maxLength={LIMITS.landmark}
                   className={inputBase}
                   placeholder="e.g. Opposite Beachfront Promenade"
                   value={form.address.landmark}
-                  onChange={(e) => setAddress('landmark', e.target.value)}
+                  onChange={(e) => setAddress("landmark", e.target.value)}
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">Google Maps Embed URL</label>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  Google Maps Embed URL
+                </label>
                 <input
                   type="url"
                   maxLength={LIMITS.mapUrl}
                   className={`${inputBase} font-mono`}
                   placeholder="https://maps.google.com/maps?q=...&output=embed"
                   value={form.address.mapEmbedUrl}
-                  onChange={(e) => setAddress('mapEmbedUrl', e.target.value)}
+                  onChange={(e) => setAddress("mapEmbedUrl", e.target.value)}
                 />
                 <p className="text-[11px] text-slate-400 mt-1">
-                  In Google Maps choose Share, then Embed a map, and paste only the link from the iframe's src.
+                  In Google Maps choose Share, then Embed a map, and paste only
+                  the link from the iframe's src.
                 </p>
               </div>
             </div>
@@ -560,11 +745,13 @@ export default function HotelContentSettingsPage() {
         )}
 
         {/* TAB 3: FAQS & POLICIES */}
-        {activeTab === 'faqs' && (
+        {activeTab === "faqs" && (
           <div className="space-y-6">
             <div>
               <div className="flex justify-between items-center mb-3">
-                <h3 className="text-sm font-bold text-slate-900">Frequently Asked Questions</h3>
+                <h3 className="text-sm font-bold text-slate-900">
+                  Frequently Asked Questions
+                </h3>
                 <button
                   type="button"
                   onClick={addFaq}
@@ -576,7 +763,10 @@ export default function HotelContentSettingsPage() {
 
               <div className="space-y-3">
                 {form.faqs.map((faq, idx) => (
-                  <div key={idx} className="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-2 relative">
+                  <div
+                    key={idx}
+                    className="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-2 relative"
+                  >
                     <button
                       type="button"
                       onClick={() => removeFaq(idx)}
@@ -591,7 +781,9 @@ export default function HotelContentSettingsPage() {
                       placeholder="Question, e.g. What time is check-in?"
                       className="w-11/12 px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-bold focus:outline-none focus:ring-2 focus:ring-slate-900"
                       value={faq.question}
-                      onChange={(e) => updateFaq(idx, 'question', e.target.value)}
+                      onChange={(e) =>
+                        updateFaq(idx, "question", e.target.value)
+                      }
                     />
                     <textarea
                       rows={2}
@@ -599,7 +791,7 @@ export default function HotelContentSettingsPage() {
                       placeholder="Answer"
                       className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-slate-900"
                       value={faq.answer}
-                      onChange={(e) => updateFaq(idx, 'answer', e.target.value)}
+                      onChange={(e) => updateFaq(idx, "answer", e.target.value)}
                     />
                   </div>
                 ))}
@@ -608,10 +800,12 @@ export default function HotelContentSettingsPage() {
 
             <div className="pt-4 border-t border-slate-100">
               <div className="flex justify-between items-center mb-3">
-                <h3 className="text-sm font-bold text-slate-900">Property Rules & Guidelines</h3>
+                <h3 className="text-sm font-bold text-slate-900">
+                  Property Rules & Guidelines
+                </h3>
                 <button
                   type="button"
-                  onClick={() => addArrayItem('propertyPolicies')}
+                  onClick={() => addArrayItem("propertyPolicies")}
                   className="inline-flex items-center gap-1 text-xs font-semibold text-blue-600 hover:text-blue-700"
                 >
                   <Plus size={14} /> Add Policy
@@ -627,9 +821,16 @@ export default function HotelContentSettingsPage() {
                       placeholder="e.g. Check-in from 2 PM, check-out by 11 AM"
                       className="flex-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-slate-900"
                       value={pol}
-                      onChange={(e) => updateArrayItem('propertyPolicies', idx, e.target.value)}
+                      onChange={(e) =>
+                        updateArrayItem("propertyPolicies", idx, e.target.value)
+                      }
                     />
-                    <button type="button" onClick={() => removeArrayItem('propertyPolicies', idx)} className="text-slate-400 hover:text-rose-600" aria-label="Remove policy">
+                    <button
+                      type="button"
+                      onClick={() => removeArrayItem("propertyPolicies", idx)}
+                      className="text-slate-400 hover:text-rose-600"
+                      aria-label="Remove policy"
+                    >
                       <Trash2 size={15} />
                     </button>
                   </div>
@@ -640,13 +841,13 @@ export default function HotelContentSettingsPage() {
         )}
 
         {/* TAB 4: ANNOUNCEMENTS */}
-        {activeTab === 'announcement' && (
+        {activeTab === "announcement" && (
           <div className="space-y-4">
             <label className="flex items-center gap-2 cursor-pointer text-xs font-semibold">
               <input
                 type="checkbox"
                 checked={Boolean(form.announcement.enabled)}
-                onChange={(e) => setAnnouncement('enabled', e.target.checked)}
+                onChange={(e) => setAnnouncement("enabled", e.target.checked)}
                 className="rounded"
               />
               <span>Display Top Notice / Announcement Banner in Widget</span>
@@ -654,7 +855,9 @@ export default function HotelContentSettingsPage() {
 
             <div>
               <div className="flex justify-between items-center mb-1">
-                <label className="block text-xs font-bold text-slate-700">Banner Announcement Text</label>
+                <label className="block text-xs font-bold text-slate-700">
+                  Banner Announcement Text
+                </label>
                 <span className="text-[11px] text-slate-400">
                   {form.announcement.text.length}/{LIMITS.announcement}
                 </span>
@@ -665,7 +868,7 @@ export default function HotelContentSettingsPage() {
                 className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-slate-900"
                 placeholder="Special festive discount or welcome perk..."
                 value={form.announcement.text}
-                onChange={(e) => setAnnouncement('text', e.target.value)}
+                onChange={(e) => setAnnouncement("text", e.target.value)}
               />
             </div>
           </div>
@@ -676,7 +879,7 @@ export default function HotelContentSettingsPage() {
           disabled={loading}
           className="px-6 py-3 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-semibold shadow-sm transition disabled:opacity-70"
         >
-          {loading ? 'Saving Content...' : 'Save Property Details'}
+          {loading ? "Saving Content..." : "Save Property Details"}
         </button>
       </form>
     </div>
